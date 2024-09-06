@@ -531,8 +531,7 @@ const deletePost = async function (params) {
 
 // Google Text translator Service //
 const translate = new Translate({
-  keyFilename:
-    "https://s3.us-east-1.wasabisys.com/freedom-social/google-cred.json", // Path to your Google Cloud key
+  keyFilename: path.join(__dirname, "https://s3.us-east-1.wasabisys.com/freedom-social/google-cred.json"), // Path to your Google Cloud key
 });
 
 const getTranscript = async function (params) {
