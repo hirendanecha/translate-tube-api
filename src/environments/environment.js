@@ -21,6 +21,7 @@ const environment = {
   DB_USER: process.env.USER,
   DEEP_GRAM_API_KEY: process.env.DEEP_GRAM_API_KEY,
   GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
+  CRED_JSON: process.env.CRED_JSON_PATH,
 };
 
 module.exports = environment;

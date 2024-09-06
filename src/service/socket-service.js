@@ -5,6 +5,7 @@ const { param } = require("../routes");
 const UserRewardDetails = require("../models/userRewardDetails.model");
 const { Translate } = require("@google-cloud/translate").v2;
 const path = require("path");
+const environment = require("../environments/environment");
 exports.getPost = async function (data) {
   return await getPost(data);
 };
@@ -531,7 +532,7 @@ const deletePost = async function (params) {
 
 // Google Text translator Service //
 const translate = new Translate({
-  keyFilename: path.join(__dirname, "https://s3.us-east-1.wasabisys.com/freedom-social/google-cred.json"), // Path to your Google Cloud key
+  keyFilename: path.join(__dirname, environment.CRED_JSON), // Path to your Google Cloud key
 });
 
 const getTranscript = async function (params) {
