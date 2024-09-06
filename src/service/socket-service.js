@@ -532,7 +532,7 @@ const deletePost = async function (params) {
 
 // Google Text translator Service //
 const translate = new Translate({
-  keyFilename: path.join(__dirname, environment.CRED_JSON), // Path to your Google Cloud key
+  keyFilename: environment.CRED_JSON, // Path to your Google Cloud key
 });
 
 const getTranscript = async function (params) {
