@@ -58,12 +58,14 @@ socket.config = (server) => {
       socket.join(params.room, {
         ...params,
       });
-      logger.info("join", {
-        ...params,
-        address,
-        id: socket.id,
-        method: "join",
-      });
+      console.log("params===>", params);
+
+      // logger.info("join", {
+      //   ...params,
+      //   address,
+      //   id: socket.id,
+      //   method: "join",
+      // });
     });
 
     socket.on("disconnect", () => {
@@ -356,6 +358,23 @@ socket.config = (server) => {
       } catch (error) {
         return error;
       }
+    });
+
+    socket.on("text-translation", async (params) => {
+      logger.info("text-translation", {
+        method: "text-translation",
+        params: params,
+      });
+      // socket.join(`${params.callId}`);
+      console.log(socket.rooms);
+      const data = await socketService.getTranscript(params);
+      console.log("data==>", data);
+
+      socket.to(`${params.callId}`).emit("translations", {
+        error: false,
+        message: "Transcript",
+        data,
+      });
     });
   });
 };

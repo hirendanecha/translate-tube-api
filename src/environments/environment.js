@@ -18,7 +18,9 @@ const environment = {
   DB_HOST: process.env.HOST,
   DB_PASS: process.env.PASSWORD,
   DB_NAME: process.env.DATABASE,
-  DB_USER: process.env.USER
+  DB_USER: process.env.USER,
+  DEEP_GRAM_API_KEY: process.env.DEEP_GRAM_API_KEY,
+  GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
 };
 
 module.exports = environment;

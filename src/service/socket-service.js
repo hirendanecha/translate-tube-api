@@ -3,7 +3,8 @@ const { notificationMail } = require("../helpers/utils");
 const { getPagination, getCount, getPaginationData } = require("../helpers/fn");
 const { param } = require("../routes");
 const UserRewardDetails = require("../models/userRewardDetails.model");
-
+const { Translate } = require("@google-cloud/translate").v2;
+const path = require("path");
 exports.getPost = async function (data) {
   return await getPost(data);
 };
@@ -61,6 +62,10 @@ exports.disLikeFeedComment = async function (data) {
 };
 exports.deletePost = async function (data) {
   return await deletePost(data);
+};
+
+exports.getTranscript = async function (data) {
+  return await getTranscript(data);
 };
 
 const getPost = async function (params) {
@@ -522,4 +527,27 @@ const deletePost = async function (params) {
   const deletePost = await executeQuery(query, value);
   const deleteComments = await executeQuery(query1, value);
   return deletePost;
+};
+
+// Google Text translator Service //
+const translate = new Translate({
+  keyFilename: path.join(__dirname, "../../public/google-cred.json"), // Path to your Google Cloud key
+});
+
+const getTranscript = async function (params) {
+  try {
+    const translation = await translate?.translate(
+      params.translateText,
+      params.translateLanguage || "en-us"
+    );
+
+    console.log(
+      `Translated Transcript (${params.translateLanguage}):`,
+      translation[1]?.data?.translations
+    );
+    return translation[1]?.data?.translations;
+  } catch (error) {
+    console.error("Error during transcription:", error);
+    return error;
+  }
 };
