@@ -367,13 +367,13 @@ socket.config = (server) => {
       });
       // socket.join(`${params.callId}`);
       console.log(socket.rooms);
-      const data = await socketService.getTranscript(params);
-      console.log("data==>", data);
+      // const data = await socketService.getTranscript(params);
+      // console.log("data==>", data);
 
       socket.to(`${params.callId}`).emit("translations", {
         error: false,
         message: "Transcript",
-        data,
+        translatedText: params.translateText,
       });
     });
   });
