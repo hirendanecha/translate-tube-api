@@ -376,6 +376,17 @@ socket.config = (server) => {
         data,
       });
     });
+
+    socket.on("change-language", async (params) => {
+      logger.info("change-language", {
+        method: "change-language",
+        params: params,
+      });
+      socket.to(`${params.callId}`).emit("user-language", {
+        error: false,
+        lang: params.lang,
+      });
+    });
   });
 };
 
