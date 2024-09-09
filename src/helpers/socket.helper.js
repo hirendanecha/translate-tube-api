@@ -14,41 +14,7 @@ socket.config = (server) => {
   });
   socket.io = io;
 
-  const publicNamespace = io.of("/public");
-  publicNamespace.on("connection", (socket) => {
-    console.log("Public user connected:", socket.id);
-
-    socket.on("text-translation", async (params) => {
-      logger.info("text-translation", {
-        method: "text-translation",
-        params: params,
-      });
-      // socket.join(`${params.callId}`);
-      console.log(socket.rooms);
-      const data = await socketService.getTranscript(params);
-      console.log("data==>", data);
-
-      socket.to(`${params.callId}`).emit("translations", {
-        error: false,
-        message: "Transcript",
-        data,
-      });
-    });
-
-    socket.on("change-language", async (params) => {
-      logger.info("change-language", {
-        method: "change-language",
-        params: params,
-      });
-      socket.to(`${params.callId}`).emit("user-language", {
-        error: false,
-        lang: params.lang,
-      });
-    });
-  });
-
-  const privateNamespace = io.of("/private");
-  privateNamespace.use((socket, next) => {
+  io.use((socket, next) => {
     try {
       const token = socket.handshake.auth?.Authorization.split(" ")[1];
       if (!token) {
@@ -71,7 +37,7 @@ socket.config = (server) => {
     }
   });
 
-  privateNamespace.on("connection", (socket) => {
+  io.sockets.on("connection", (socket) => {
     let address = socket.request.connection.remoteAddress;
 
     logger.info(`New Connection`, {
