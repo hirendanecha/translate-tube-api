@@ -158,3 +158,69 @@ exports.executeQuery = async (query, values = []) => {
     });
   });
 };
+
+exports.sendSuccessCB = (
+  cb,
+  message = "Success",
+  status = 200,
+  flag = true
+) => {
+  try {
+    const response = {
+      ...(typeof message === "object" ? message : { message }),
+    };
+
+    console.log(
+      JSON.stringify({
+        ...(flag ? { success: true } : {}),
+        ...response,
+        status,
+      })
+    );
+
+    if (cb != null) {
+      return cb(
+        JSON.stringify({
+          ...(flag ? { success: true } : {}),
+          ...response,
+          status,
+        })
+      );
+    }
+  } catch (error) {
+    console.log(error?.message);
+  }
+};
+
+exports.sendErrorCB = (
+  cb,
+  message = "Internal Server Error",
+  status = 500,
+  flag = true
+) => {
+  try {
+    const response = {
+      ...(typeof message === "object" ? message : { message }),
+    };
+
+    console.log(
+      JSON.stringify({
+        ...(flag ? { success: false } : {}),
+        ...response,
+        status,
+      })
+    );
+
+    if (cb != null) {
+      return cb(
+        JSON.stringify({
+          ...(flag ? { success: false } : {}),
+          ...response,
+          status,
+        })
+      );
+    }
+  } catch (error) {
+    console.log(error?.message);
+  }
+};

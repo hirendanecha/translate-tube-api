@@ -1,9 +1,9 @@
 let logger = console;
 const socket = {};
-const { post, param } = require("../routes");
 const socketService = require("../service/socket-service");
 const environment = require("../environments/environment");
 const jwt = require("jsonwebtoken");
+const { sendErrorCB } = require("../helpers/utils");
 
 socket.config = (server) => {
   const io = require("socket.io")(server, {
@@ -14,45 +14,93 @@ socket.config = (server) => {
   });
   socket.io = io;
 
-  io.use((socket, next) => {
-    try {
+  // io.use((socket, next) => {
+  //   try {
+  //     const token = socket.handshake.auth?.Authorization.split(" ")[1];
+  //     if (!token) {
+  //       const err = new Error("Unauthorized Access");
+  //       return next(err);
+  //     }
+  //     let decoded = jwt.decode(token);
+  //     jwt.verify(token, environment.JWT_SECRET_KEY, async (err, user) => {
+  //       if (err) {
+  //         const err = new Error("Invalid or Expired Token");
+  //         return next(err);
+  //       }
+  //       socket.user = decoded.user;
+  //       socket.join(`${socket.user?.id}`);
+  //       next();
+  //     });
+  //   } catch (error) {
+  //     const err = new Error("Invalid or Expired Token");
+  //     return next(err);
+  //   }
+  // });
+
+  io.sockets.on("connection", (socket) => {
+    const requireAuth = (handler) => async (params, cb) => {
       const token = socket.handshake.auth?.Authorization.split(" ")[1];
-      if (!token) {
+      console.log("accessToken==>", token);
+
+      if (!token || token === "undefined" || token === "null") {
         const err = new Error("Unauthorized Access");
-        return next(err);
+        return sendErrorCB(cb, {
+          message: err.message,
+          code: "UN401",
+        });
       }
       let decoded = jwt.decode(token);
       jwt.verify(token, environment.JWT_SECRET_KEY, async (err, user) => {
         if (err) {
           const err = new Error("Invalid or Expired Token");
-          return next(err);
+          return sendErrorCB(cb, {
+            message: err.message,
+            code: "UN401",
+          });
         }
         socket.user = decoded.user;
         socket.join(`${socket.user?.id}`);
-        next();
       });
-    } catch (error) {
-      const err = new Error("Invalid or Expired Token");
-      return next(err);
-    }
-  });
+      if (!socket.user) {
+        return sendErrorCB(cb, {
+          message: "Unauthorized Access",
+          code: "UN401",
+        });
+      }
+      return handler(params, cb);
+    };
 
-  io.sockets.on("connection", (socket) => {
     let address = socket.request.connection.remoteAddress;
-
-    logger.info(`New Connection`, {
-      address,
-      id: socket.id,
-    });
-    socket.on("leave", (params) => {
-      logger.info("leaved", {
-        ...params,
-        address,
-        id: socket.id,
-        method: "leave",
+    socket.on("text-translation", async (params) => {
+      logger.info("text-translation", {
+        method: "text-translation",
+        params: params,
       });
-      socket.leave(params.room);
+      // socket.join(`${params.callId}`);
+      console.log(socket.rooms);
+      // const data = await socketService.getTranscript(params);
+      // console.log("data==>", data);
+
+      socket.to(`${params.callId}`).emit("translations", {
+        error: false,
+        message: "Transcript",
+        translatedText: params.translateText,
+      });
     });
+
+    // logger.info(`New Connection`, {
+    //   address,
+    //   id: socket.id,
+    // });
+    // socket.on("leave", (params) => {
+    //   logger.info("leaved", {
+    //     ...params,
+    //     address,
+    //     id: socket.id,
+    //     method: "leave",
+    //   });
+    //   socket.leave(params.room);
+    // });
 
     socket.on("join", async (params) => {
       socket.join(params.room, {
@@ -75,66 +123,72 @@ socket.config = (server) => {
       });
     });
 
-    socket.on("rooms", (params, cb) => {
-      logger.info("Rooms", {
-        id: socket.id,
-        method: "rooms",
-        type: typeof cb,
-        params: params,
-      });
+    // socket.on("rooms", (params, cb) => {
+    //   logger.info("Rooms", {
+    //     id: socket.id,
+    //     method: "rooms",
+    //     type: typeof cb,
+    //     params: params,
+    //   });
 
-      if (typeof cb === "function")
-        cb({
-          rooms: ["DSDsds"],
-        });
-    });
+    //   if (typeof cb === "function")
+    //     cb({
+    //       rooms: ["DSDsds"],
+    //     });
+    // });
 
     // socket for post //
-    socket.on("get-new-post", async (params) => {
-      console.log(params);
+    socket.on(
+      "get-new-post",
+      requireAuth(async (params) => {
+        console.log(params);
 
-      logger.info("New post found", {
-        method: "New post found",
-        params: params,
-      });
-      const data = await socketService.getPost(params);
-      if (data) {
-        socket.emit("new-post", data);
-      }
-    });
+        logger.info("New post found", {
+          method: "New post found",
+          params: params,
+        });
+        const data = await socketService.getPost(params);
+        if (data) {
+          socket.emit("new-post", data);
+        }
+      })
+    );
 
-    socket.on("create-new-post", async (params, cb) => {
-      logger.info("Create new post", {
-        method: "Create new post",
-        params: params,
-      });
-      try {
-        const data = await socketService.createPost(params);
-        console.log(data);
-        if (data?.posts) {
-          io.emit("new-post-added", data?.posts);
+    socket.on(
+      "create-new-post",
+      requireAuth(async (params, cb) => {
+        logger.info("Create new post", {
+          method: "Create new post",
+          params: params,
+        });
+        try {
+          const data = await socketService.createPost(params);
+          console.log(data);
+          if (data?.posts) {
+            io.emit("new-post-added", data?.posts);
 
-          if (data?.notifications) {
-            for (const key in data?.notifications) {
-              if (Object.hasOwnProperty.call(data?.notifications, key)) {
-                const notification = data?.notifications[key];
+            if (data?.notifications) {
+              for (const key in data?.notifications) {
+                if (Object.hasOwnProperty.call(data?.notifications, key)) {
+                  const notification = data?.notifications[key];
 
-                io.to(`${notification.notificationToProfileId}`).emit(
-                  "notification",
-                  notification
-                );
+                  io.to(`${notification.notificationToProfileId}`).emit(
+                    "notification",
+                    notification
+                  );
+                }
               }
             }
-          }
 
-          const socketData = await socketService.getPost(params);
-          if (typeof cb === "function") cb(socketData);
-          socket.broadcast.emit("new-post", socketData);
+            const socketData = await socketService.getPost(params);
+            if (typeof cb === "function") cb(socketData);
+            socket.broadcast.emit("new-post", socketData);
+          }
+        } catch (error) {
+          console.log(error);
         }
-      } catch (error) {
-        console.log(error);
-      }
-    });
+      })
+    );
 
     // socket for community //
     socket.on("create-new-community", async (params) => {
@@ -224,54 +278,57 @@ socket.config = (server) => {
       }
     });
 
-    socket.on("likeOrDislike", async (params) => {
-      logger.info("like", {
-        method: "Like on post",
-        params: params,
-      });
-      if (params.actionType) {
-        if (params.postId) {
-          const data = await socketService.likeFeedPost(params);
-          io.emit("likeOrDislike", data.posts);
-          const notification = await socketService.createNotification({
-            notificationToProfileId: params.toProfileId,
-            postId: params.postId,
-            notificationByProfileId: params.profileId,
-            actionType: params.actionType,
-          });
-          console.log(notification);
-          // notification - emit - to user
-          io.to(`${notification.notificationToProfileId}`).emit(
-            "notification",
-            notification
-          );
-          // } else if (params.communityPostId) {
-          //   const data = await socketService.likeFeedPost(params);
+    socket.on(
+      "likeOrDislike",
+      requireAuth(async (params) => {
+        logger.info("like", {
+          method: "Like on post",
+          params: params,
+        });
+        if (params.actionType) {
+          if (params.postId) {
+            const data = await socketService.likeFeedPost(params);
+            io.emit("likeOrDislike", data.posts);
+            const notification = await socketService.createNotification({
+              notificationToProfileId: params.toProfileId,
+              postId: params.postId,
+              notificationByProfileId: params.profileId,
+              actionType: params.actionType,
+            });
+            console.log(notification);
+            // notification - emit - to user
+            io.to(`${notification.notificationToProfileId}`).emit(
+              "notification",
+              notification
+            );
+            // } else if (params.communityPostId) {
+            //   const data = await socketService.likeFeedPost(params);
+            //   socket.broadcast.emit("community-post", data);
+            //   const notification = await socketService.createNotification({
+            //     notificationToProfileId: params.toProfileId,
+            //     postId: params.communityPostId,
+            //     notificationByProfileId: params.profileId,
+            //     actionType: params.actionType,
+            //   });
+            //   // notification - emit - to user
+            //   io.to(`${notification.notificationToProfileId}`).emit(
+            //     "notification",
+            //     notification
+            //   );
+          }
+        } else {
+          if (params.postId) {
+            const data = await socketService.disLikeFeedPost(params);
+            // socket.broadcast.emit("new-post", data);
+            io.emit("likeOrDislike", data.posts);
+          }
+          // else if (params.communityPostId) {
+          //   const data = await socketService.disLikeFeedPost(params);
           //   socket.broadcast.emit("community-post", data);
-          //   const notification = await socketService.createNotification({
-          //     notificationToProfileId: params.toProfileId,
-          //     postId: params.communityPostId,
-          //     notificationByProfileId: params.profileId,
-          //     actionType: params.actionType,
-          //   });
-          //   // notification - emit - to user
-          //   io.to(`${notification.notificationToProfileId}`).emit(
-          //     "notification",
-          //     notification
-          //   );
+          // }
         }
-      } else {
-        if (params.postId) {
-          const data = await socketService.disLikeFeedPost(params);
-          // socket.broadcast.emit("new-post", data);
-          io.emit("likeOrDislike", data.posts);
-        }
-        // else if (params.communityPostId) {
-        //   const data = await socketService.disLikeFeedPost(params);
-        //   socket.broadcast.emit("community-post", data);
-        // }
-      }
-    });
+      })
+    );
 
     socket.on("send-notification", (params) => {
       console.log(params);
@@ -282,111 +339,95 @@ socket.config = (server) => {
       });
     });
 
-    socket.on("comments-on-post", async (params) => {
-      console.log(params);
-      const data = await socketService.createComments(params);
-      if (data.comments) {
-        console.log("comments-on-post====>", data?.comments);
-        io.emit("comments-on-post", data?.comments);
-      }
-      if (data?.notifications) {
-        for (const key in data?.notifications) {
-          if (Object.hasOwnProperty.call(data?.notifications, key)) {
-            const notification = data?.notifications[key];
-            io.to(`${notification.notificationToProfileId}`).emit(
-              "notification",
-              notification
-            );
+    socket.on(
+      "comments-on-post",
+      requireAuth(async (params) => {
+        console.log(params);
+        const data = await socketService.createComments(params);
+        if (data.comments) {
+          console.log("comments-on-post====>", data?.comments);
+          io.emit("comments-on-post", data?.comments);
+        }
+        if (data?.notifications) {
+          for (const key in data?.notifications) {
+            if (Object.hasOwnProperty.call(data?.notifications, key)) {
+              const notification = data?.notifications[key];
+              io.to(`${notification.notificationToProfileId}`).emit(
+                "notification",
+                notification
+              );
+            }
           }
         }
-      }
-      logger.info("comments on post", {
-        method: "User comment on post",
-        params: params,
-      });
-    });
-
-    socket.on("likeOrDislikeComments", async (params) => {
-      logger.info("like", {
-        method: "Like on post",
-        params: params,
-      });
-      if (params.actionType) {
-        const data = await socketService.likeFeedComment(params);
-        console.log(data.comments);
-        socket.broadcast.emit("likeOrDislikeComments", data.comments);
-        const notification = await socketService.createNotification({
-          notificationToProfileId: params.toProfileId,
-          postId: params.postId,
-          commentId: params.commentId,
-          notificationByProfileId: params.profileId,
-          actionType: params.actionType,
+        logger.info("comments on post", {
+          method: "User comment on post",
+          params: params,
         });
-        console.log(notification);
-        // notification - emit - to user
-        io.to(`${notification.notificationToProfileId}`).emit(
-          "notification",
-          notification
-        );
-      } else {
-        const data = await socketService.disLikeFeedComment(params);
-        socket.broadcast.emit("likeOrDislikeComments", data.comments);
-      }
-    });
+      })
+    );
 
-    socket.on("deletePost", async (params) => {
-      logger.info("like", {
-        method: "delete post",
-        params: params,
-      });
-      if (params.id) {
-        const data = await socketService.deletePost(params);
-        io.emit("deletePost", data);
-      }
-    });
-
-    socket.on("isReadNotification", async (params) => {
-      logger.info("like", {
-        method: "read notification",
-        params: params,
-      });
-      try {
-        if (params.profileId) {
-          params["isRead"] = "Y";
-          io.to(`${params.profileId}`).emit("isReadNotification_ack", params);
+    socket.on(
+      "likeOrDislikeComments",
+      requireAuth(async (params) => {
+        logger.info("like", {
+          method: "Like on post",
+          params: params,
+        });
+        if (params.actionType) {
+          const data = await socketService.likeFeedComment(params);
+          console.log(data.comments);
+          socket.broadcast.emit("likeOrDislikeComments", data.comments);
+          const notification = await socketService.createNotification({
+            notificationToProfileId: params.toProfileId,
+            postId: params.postId,
+            commentId: params.commentId,
+            notificationByProfileId: params.profileId,
+            actionType: params.actionType,
+          });
+          console.log(notification);
+          // notification - emit - to user
+          io.to(`${notification.notificationToProfileId}`).emit(
+            "notification",
+            notification
+          );
+        } else {
+          const data = await socketService.disLikeFeedComment(params);
+          socket.broadcast.emit("likeOrDislikeComments", data.comments);
         }
-      } catch (error) {
-        return error;
-      }
-    });
+      })
+    );
 
-    socket.on("text-translation", async (params) => {
-      logger.info("text-translation", {
-        method: "text-translation",
-        params: params,
-      });
-      // socket.join(`${params.callId}`);
-      console.log(socket.rooms);
-      // const data = await socketService.getTranscript(params);
-      // console.log("data==>", data);
+    socket.on(
+      "deletePost",
+      requireAuth(async (params) => {
+        logger.info("like", {
+          method: "delete post",
+          params: params,
+        });
+        if (params.id) {
+          const data = await socketService.deletePost(params);
+          io.emit("deletePost", data);
+        }
+      })
+    );
 
-      socket.to(`${params.callId}`).emit("translations", {
-        error: false,
-        message: "Transcript",
-        translatedText:params.translateText,
-      });
-    });
-
-    socket.on("change-language", async (params) => {
-      logger.info("change-language", {
-        method: "change-language",
-        params: params,
-      });
-      socket.to(`${params.callId}`).emit("user-language", {
-        error: false,
-        lang: params.lang,
-      });
-    });
+    socket.on(
+      "isReadNotification",
+      requireAuth(async (params) => {
+        logger.info("like", {
+          method: "read notification",
+          params: params,
+        });
+        try {
+          if (params.profileId) {
+            params["isRead"] = "Y";
+            io.to(`${params.profileId}`).emit("isReadNotification_ack", params);
+          }
+        } catch (error) {
+          return error;
+        }
+      })
+    );
   });
 };
 
