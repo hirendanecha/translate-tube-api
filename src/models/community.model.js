@@ -1,6 +1,4 @@
 var db = require("../../config/db.config");
-require("../common/common")();
-const environment = require("../environments/environment");
 const { executeQuery } = require("../helpers/utils");
 
 var Community = function (community) {
@@ -26,7 +24,6 @@ Community.findAllCommunity = async function (
   selectedState,
   selectedAreas
 ) {
-  console.log(selectedCard, "selectedCard");
   let whereCondition = `c.pageType = 'community' AND c.isApprove = 'Y' ${
     selectedCountry || selectedState
       ? `AND c.Country LIKE '%${selectedCountry}%' AND c.State LIKE '%${selectedState}%'`
@@ -223,7 +220,7 @@ Community.findCommunityById = async function (id) {
 
 Community.findCommunityBySlug = async function (slug) {
   const communityQuery =
-    "select c.*,p.Username, count(cm.profileId) as members from community as c left join profile as p on p.ID = c.profileId left join communityMembers as cm on cm.communityId = c.Id where c.slug=?";
+    "select c.*,p.Username, count(cm.profileId) as members from community as c left join profile as p on p.ID = c.profileId left join communityMembers as cm on cm.communityId = c.Id where c.slug=? group by c.Id;";
   const communities = await executeQuery(communityQuery, [slug]);
   const community = communities?.[0] || {};
 
@@ -232,6 +229,14 @@ Community.findCommunityBySlug = async function (slug) {
       "select cm.*,p.Username, p.ProfilePicName,p.FirstName,p.LastName from communityMembers as cm left join profile as p on p.ID = cm.profileId where cm.communityId = ?;";
     const members = await executeQuery(getMembersQuery, [community?.Id]);
     community["memberList"] = members;
+  }
+
+  if (community.pageType === "community") {
+    const query2 =
+      "select pa.aId,ah.name from practitioner_area as pa left join area_healing as ah on ah.aId = pa.aId where pa.communityId =? ";
+    const values1 = [community.Id];
+    const areas = await executeQuery(query2, values1);
+    community.areas = areas;
   }
 
   return community;
@@ -410,11 +415,11 @@ Community.addAreas = async function (communityId, data) {
 };
 
 Community.getEmphasisAndArea = async function () {
-  const query = "select * from emphasis_healing";
-  const emphasis = await executeQuery(query);
+  // const query = "select * from emphasis_healing";
+  // const emphasis = await executeQuery(query);
   const query1 = "select * from area_healing";
   const area = await executeQuery(query1);
-  return { emphasis, area };
+  return { area };
 };
 
 Community.CreateAdvertizementLink = async function (communityLinkData, result) {

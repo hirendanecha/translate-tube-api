@@ -1,5 +1,4 @@
 const { executeQuery } = require("../helpers/utils");
-require("../common/common")();
 
 var UserRewards = function (reward) {
   this.PROFILE_ID = reward.PROFILE_ID;

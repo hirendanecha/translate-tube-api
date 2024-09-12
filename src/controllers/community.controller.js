@@ -7,7 +7,6 @@ const { getPagination, getCount, getPaginationData } = require("../helpers/fn");
 exports.findAllCommunity = async function (req, res) {
   const { selectedCard, selectedCountry, selectedState, selectedAreas } =
     req.body;
-  console.log(req.body);
   const searchData = await Community.findAllCommunity(
     selectedCard,
     selectedCountry,
@@ -64,11 +63,11 @@ exports.createCommunity = async function (req, res) {
         return utils.send500(res, err);
       } else {
         if (community) {
-          const emphasisData = req.body.emphasis;
+          // const emphasisData = req.body.emphasis;
           const areasData = req.body.areas;
-          const emphasis = await Community.addEmphasis(community, emphasisData);
+          // const emphasis = await Community.addEmphasis(community, emphasisData);
           const areas = await Community.addAreas(community, areasData);
-          console.log(emphasis, areas);
+          console.log(areas);
         }
         return res.json({
           error: false,

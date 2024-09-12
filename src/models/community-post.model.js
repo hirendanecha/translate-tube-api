@@ -1,6 +1,4 @@
 var db = require("../../config/db.config");
-require("../common/common")();
-const environment = require("../environments/environment");
 const { executeQuery } = require("../helpers/utils");
 
 var CommunityPost = function (post) {
