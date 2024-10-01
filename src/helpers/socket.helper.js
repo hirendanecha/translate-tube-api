@@ -85,6 +85,7 @@ socket.config = (server) => {
         error: false,
         message: "Transcript",
         translatedText: params.translateText,
+        participantName: params.participantName,
       });
     });
 
